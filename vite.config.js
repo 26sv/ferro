@@ -2,12 +2,18 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+/* Pages pubblica i progetti sotto /ferro/, non in radice: senza base
+   gli asset verrebbero cercati in / e risponderebbero 404. */
+const base = "/ferro/";
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
+      scope: base,
       manifest: {
         name: "Ferro",
         short_name: "Ferro",
@@ -16,7 +22,8 @@ export default defineConfig({
         background_color: "#000000",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/",
+        scope: base,
+        start_url: base,
         icons: [
           { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" },
         ],
