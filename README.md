@@ -1,6 +1,8 @@
-# Ferro
+# GYM BUDDY
 
 Scheda di forza, cronometro serie e recuperi, storico e progressi.
+Chiede l'energia a ogni apertura e la soddisfazione a fine seduta; la scheda Dati
+mostra su un calendario i giorni in cui mi sono allenato.
 
 ## Avvio
 
@@ -27,6 +29,10 @@ Dal browser del telefono: Condividi, "Aggiungi a schermata Home".
 
 ## Dati
 
-Tutto in `localStorage`, chiave `ferro:palestra-v1`. Niente account,
+Tutto in `localStorage`, chiave `gymbuddy:palestra-v1`. Niente account,
 niente server. Svuotare i dati del sito cancella lo storico, quindi
 prima o poi vale la pena implementare l'export in JSON.
+
+Chi arriva dalla vecchia versione chiamata Ferro non deve fare niente:
+al primo avvio `migraDaFerro()` ricopia le chiavi `ferro:` sotto il nuovo
+prefisso, lasciando le originali al loro posto per sicurezza.

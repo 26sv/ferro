@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { storage } from "./storage";
+import { storage, migraDaFerro } from "./storage";
 
 const KEY = "palestra-v1";
 
@@ -36,8 +36,30 @@ const FEEL = [
   { id: "forte", label: "Fastidio marcato", tone: "piastra" },
 ];
 
+/* Le due scale a quattro gradini: energia all'apertura, soddisfazione a fine seduta.
+   Stesso passo 1-4 così nella scheda Dati si possono confrontare a colpo d'occhio. */
+const ENERGIA = [
+  { level: 1, emoji: "😵‍💫", label: "A terra", tone: "piastra" },
+  { level: 2, emoji: "😐", label: "Fiacco", tone: "ambra" },
+  { level: 3, emoji: "💪", label: "In forma", tone: "verde" },
+  { level: 4, emoji: "🔥", label: "Carico", tone: "verde" },
+];
+const SODDISFAZIONE = [
+  { level: 1, emoji: "😞", label: "Male", tone: "piastra" },
+  { level: 2, emoji: "😐", label: "Così così", tone: "ambra" },
+  { level: 3, emoji: "😊", label: "Bene", tone: "verde" },
+  { level: 4, emoji: "🤩", label: "Alla grande", tone: "verde" },
+];
+
 const ALL_EXERCISES = [...PROGRAM.A.exercises, ...PROGRAM.B.exercises];
-const emptyData = { history: [], lastWeights: {}, weeklyTarget: 3, active: null };
+const emptyData = {
+  history: [],
+  lastWeights: {},
+  weeklyTarget: 3,
+  active: null,
+  userName: null,
+  energyLog: [], // [{ ts, level }], il più recente in testa
+};
 
 /* ---------------- helpers ---------------- */
 
@@ -55,6 +77,13 @@ const startOfWeek = (d) => {
   x.setHours(0, 0, 0, 0);
   x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
   return x;
+};
+
+/* Chiave giorno in ora locale: toISOString() lavora in UTC e sposterebbe
+   le sedute serali sul giorno dopo. */
+const dayKey = (d) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
 };
 
 const dayLabel = (iso) => new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
@@ -107,6 +136,9 @@ export default function App() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [flash, setFlash] = useState(null);
   const [toast, setToast] = useState(null);
+  /* Non persistiti: valgono per questa apertura dell'app e basta. */
+  const [energiaChiesta, setEnergiaChiesta] = useState(false);
+  const [rinomina, setRinomina] = useState(false);
   const saveTimer = useRef(null);
   const beeped = useRef(false);
 
@@ -114,6 +146,7 @@ export default function App() {
     let alive = true;
     (async () => {
       try {
+        migraDaFerro();
         const res = await storage.get(KEY);
         const parsed = res ? JSON.parse(res.value) : null;
         if (alive && parsed) setData({ ...emptyData, ...parsed });
@@ -141,12 +174,33 @@ export default function App() {
     }, 500);
   }, []);
 
+  /* Come persist ma senza debounce: per nome ed energia, che si scelgono una volta
+     sola e subito dopo si può ricaricare la pagina. Il debounce serve alle serie,
+     che arrivano a raffica. */
+  const salvaSubito = useCallback(async (next) => {
+    setData(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    try {
+      await storage.set(KEY, JSON.stringify(next));
+    } catch (e) {
+      setToast("Salvataggio non riuscito. Resta tutto sullo schermo, riprova a fine serie.");
+      setTimeout(() => setToast(null), 4000);
+    }
+  }, []);
+
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(i);
   }, []);
 
   const active = data.active;
+
+  /* Se c'è una seduta aperta la domanda sull'energia è già acqua passata: l'ho
+     data all'avvio, o l'ho saltata riaprendo a metà. Senza questo, chiudendo la
+     seduta il prompt tornerebbe a galla a fine allenamento. */
+  useEffect(() => {
+    if (active) setEnergiaChiesta(true);
+  }, [active]);
 
   /* schermo sempre acceso durante l'allenamento */
   useEffect(() => {
@@ -207,7 +261,13 @@ export default function App() {
 
   /* azioni */
   const startSession = (type) => {
-    persist({ ...data, active: { type, startedAt: new Date().toISOString(), log: {}, warmup: [] } });
+    /* L'energia dichiarata all'apertura viaggia con la seduta: serve a incrociarla
+       con la soddisfazione finale nella scheda Dati. */
+    const energia = data.energyLog.length ? data.energyLog[0].level : null;
+    persist({
+      ...data,
+      active: { type, startedAt: new Date().toISOString(), log: {}, warmup: [], energy: energia },
+    });
     setFocusIdx(0);
     setTab("oggi");
   };
@@ -237,7 +297,7 @@ export default function App() {
     buzz(15);
   };
 
-  const saveSession = (feel) => {
+  const saveSession = (feel, satisfaction) => {
     const entry = {
       id: `s${Date.now()}`,
       date: active.startedAt,
@@ -245,6 +305,8 @@ export default function App() {
       durationSec: Math.round(elapsed),
       log: active.log,
       feel: feel || null,
+      satisfaction: satisfaction || null,
+      energy: active.energy || null,
     };
     persist({ ...data, history: [entry, ...data.history], active: null });
     setRest(null);
@@ -264,6 +326,24 @@ export default function App() {
       </div>
     );
   }
+
+  /* Prima apertura in assoluto, o richiesta esplicita di cambiare nome. */
+  if (!data.userName || rinomina) {
+    return (
+      <Onboarding
+        nomeAttuale={rinomina ? data.userName : ""}
+        onSave={(nome) => {
+          salvaSubito({ ...data, userName: nome });
+          setRinomina(false);
+        }}
+        onAnnulla={rinomina ? () => setRinomina(false) : null}
+      />
+    );
+  }
+
+  /* L'energia si chiede a ogni apertura, ma mai a metà allenamento: se riapro
+     l'app tra una serie e l'altra devo ritrovare il cronometro, non una domanda. */
+  const chiediEnergia = !energiaChiesta && !active;
 
   const done = active ? setsDone(active.log) : 0;
   const total = active ? plannedSets(active.type) : 0;
@@ -287,8 +367,8 @@ export default function App() {
         ) : (
           <>
             <div>
-              <p className="eyebrow">Scheda forza</p>
-              <h1 className="brand">FERRO</h1>
+              <p className="eyebrow">Ciao {data.userName}</p>
+              <h1 className="brand">GYM BUDDY</h1>
             </div>
             <div className="right">
               <p className="eyebrow">Settimana</p>
@@ -334,6 +414,7 @@ export default function App() {
             onTarget={(t) => persist({ ...data, weeklyTarget: t })}
           />
         )}
+        {tab === "dati" && <Dati data={data} onRinomina={() => setRinomina(true)} />}
         {tab === "storico" && <Storico data={data} />}
       </main>
 
@@ -362,11 +443,26 @@ export default function App() {
         />
       )}
 
+      {chiediEnergia && (
+        <Energia
+          nome={data.userName}
+          onPick={(level) => {
+            salvaSubito({
+              ...data,
+              energyLog: [{ ts: new Date().toISOString(), level }, ...data.energyLog].slice(0, 400),
+            });
+            setEnergiaChiesta(true);
+            buzz(20);
+          }}
+        />
+      )}
+
       {toast && <div className="toast">{toast}</div>}
 
       <nav className="tabbar">
         {[
           ["oggi", "Oggi"],
+          ["dati", "Dati"],
           ["progressi", "Progressi"],
           ["storico", "Storico"],
         ].map(([id, label]) => (
@@ -376,6 +472,65 @@ export default function App() {
           </button>
         ))}
       </nav>
+    </div>
+  );
+}
+
+/* ---------------- nome ed energia ---------------- */
+
+function Onboarding({ nomeAttuale, onSave, onAnnulla }) {
+  const [nome, setNome] = useState(nomeAttuale || "");
+  const pulito = nome.trim().slice(0, 24);
+
+  return (
+    <div className="root center">
+      <Style />
+      <div className="onboard">
+        <p className="eyebrow">{onAnnulla ? "Impostazioni" : "Benvenuto"}</p>
+        <h1 className="brand brand-big">GYM BUDDY</h1>
+        <p className="body muted spaced">Come ti devo chiamare?</p>
+        <input
+          className="field"
+          type="text"
+          value={nome}
+          maxLength={24}
+          autoFocus
+          autoComplete="given-name"
+          placeholder="Il tuo nome"
+          onChange={(e) => setNome(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && pulito) onSave(pulito);
+          }}
+        />
+        <button className="btn btn-primary" disabled={!pulito} onClick={() => onSave(pulito)}>
+          {onAnnulla ? "Salva" : "Iniziamo"}
+        </button>
+        {onAnnulla && (
+          <button className="btn btn-ghost" onClick={onAnnulla}>
+            Annulla
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Energia({ nome, onPick }) {
+  return (
+    <div className="sheet">
+      <div className="sheet-in">
+        <p className="eyebrow">Ciao {nome}</p>
+        <h2 className="h2">Quanta energia hai oggi?</h2>
+        <div className="moodrow">
+          {ENERGIA.map((e) => (
+            <button key={e.level} className={`mood mood-${e.tone}`} onClick={() => onPick(e.level)}>
+              <span className="mood-emoji">{e.emoji}</span>
+              {e.label}
+            </button>
+          ))}
+        </div>
+        <p className="footnote">Serve solo a te: nella scheda Dati vedi se allenarti da stanco cambia il risultato.</p>
+      </div>
     </div>
   );
 }
@@ -692,6 +847,7 @@ function RestOverlay({ left, duration, onSet, onAdd, onClose }) {
 
 function Riepilogo({ active, elapsed, bestWeights, onSave, onBack }) {
   const [feel, setFeel] = useState(null);
+  const [sat, setSat] = useState(null);
   const list = PROGRAM[active.type].exercises;
   const done = setsDone(active.log);
   const total = plannedSets(active.type);
@@ -749,7 +905,21 @@ function Riepilogo({ active, elapsed, bestWeights, onSave, onBack }) {
           </p>
         )}
 
-        <button className="btn btn-primary" onClick={() => onSave(feel)}>
+        <p className="eyebrow spaced">Quanto ti senti soddisfatto</p>
+        <div className="moodrow">
+          {SODDISFAZIONE.map((s) => (
+            <button
+              key={s.level}
+              className={sat === s.level ? `mood mood-${s.tone} mood-on` : `mood mood-${s.tone}`}
+              onClick={() => setSat(s.level)}
+            >
+              <span className="mood-emoji">{s.emoji}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <button className="btn btn-primary" onClick={() => onSave(feel, sat)}>
           Salva allenamento
         </button>
         <button className="btn btn-ghost" onClick={onBack}>
@@ -920,6 +1090,255 @@ function Progressi({ data, thisWeek, bestWeights, onTarget }) {
   );
 }
 
+/* ---------------- dati: calendario delle presenze ---------------- */
+
+const MESI = [
+  "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+];
+const GIORNI = ["L", "M", "M", "G", "V", "S", "D"];
+
+/** Settimane consecutive con almeno una seduta, risalendo da quella corrente. */
+const streakSettimane = (history) => {
+  if (!history.length) return 0;
+  const settimane = new Set(history.map((s) => startOfWeek(new Date(s.date)).getTime()));
+  const cur = startOfWeek(new Date());
+  /* La settimana in corso non conta come interruzione se è ancora vuota:
+     parto da quella precedente e la aggiungo solo se ha già una seduta. */
+  let n = settimane.has(cur.getTime()) ? 1 : 0;
+  const c = new Date(cur);
+  c.setDate(c.getDate() - 7);
+  while (settimane.has(c.getTime())) {
+    n += 1;
+    c.setDate(c.getDate() - 7);
+  }
+  return n;
+};
+
+const media = (valori) => (valori.length ? valori.reduce((t, v) => t + v, 0) / valori.length : null);
+
+function Dati({ data, onRinomina }) {
+  const [cursore, setCursore] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [giornoAperto, setGiornoAperto] = useState(null);
+
+  /* Un giorno può contenere più sedute: le raggruppo per chiave locale. */
+  const perGiorno = useMemo(() => {
+    const m = {};
+    data.history.forEach((s) => {
+      const k = dayKey(s.date);
+      (m[k] = m[k] || []).push(s);
+    });
+    return m;
+  }, [data.history]);
+
+  const oggi = new Date();
+  const chiaveOggi = dayKey(oggi);
+  const anno = cursore.getFullYear();
+  const mese = cursore.getMonth();
+  const meseCorrente = anno === oggi.getFullYear() && mese === oggi.getMonth();
+
+  const celle = useMemo(() => {
+    const primo = new Date(anno, mese, 1);
+    const giorniNelMese = new Date(anno, mese + 1, 0).getDate();
+    const vuote = (primo.getDay() + 6) % 7; // settimana che parte da lunedì
+    const out = [];
+    for (let i = 0; i < vuote; i++) out.push(null);
+    for (let g = 1; g <= giorniNelMese; g++) out.push(g);
+    return out;
+  }, [anno, mese]);
+
+  const nelMese = data.history.filter((s) => {
+    const d = new Date(s.date);
+    return d.getFullYear() === anno && d.getMonth() === mese;
+  });
+
+  const streak = streakSettimane(data.history);
+
+  const daTrentaGiorni = Date.now() - 30 * 24 * 3600 * 1000;
+  const energiaMedia = media(
+    data.energyLog.filter((e) => new Date(e.ts).getTime() >= daTrentaGiorni).map((e) => e.level)
+  );
+  const soddisfazioneMedia = media(data.history.map((s) => s.satisfaction).filter((v) => v));
+
+  const scalaMedia = (scala, valore) => {
+    if (valore === null) return null;
+    return scala.find((x) => x.level === Math.round(valore)) || null;
+  };
+  const eMedia = scalaMedia(ENERGIA, energiaMedia);
+  const sMedia = scalaMedia(SODDISFAZIONE, soddisfazioneMedia);
+
+  const sedute = giornoAperto ? perGiorno[giornoAperto] || [] : [];
+
+  return (
+    <div className="stack">
+      <div className="grid2">
+        <section className="card mini">
+          <p className="eyebrow">Nel mese</p>
+          <p className="mono stat">
+            {nelMese.length}
+            <span className="unit">sedute</span>
+          </p>
+        </section>
+        <section className="card mini">
+          <p className="eyebrow">Settimane di fila</p>
+          <p className="mono stat">{streak}</p>
+        </section>
+      </div>
+
+      <div className="grid2">
+        <section className="card mini">
+          <p className="eyebrow">Energia media</p>
+          <p className="mono stat">
+            {eMedia ? (
+              <>
+                <span className="stat-emoji">{eMedia.emoji}</span>
+                {energiaMedia.toFixed(1).replace(".", ",")}
+              </>
+            ) : (
+              <span className="muted">—</span>
+            )}
+          </p>
+        </section>
+        <section className="card mini">
+          <p className="eyebrow">Soddisfazione</p>
+          <p className="mono stat">
+            {sMedia ? (
+              <>
+                <span className="stat-emoji">{sMedia.emoji}</span>
+                {soddisfazioneMedia.toFixed(1).replace(".", ",")}
+              </>
+            ) : (
+              <span className="muted">—</span>
+            )}
+          </p>
+        </section>
+      </div>
+
+      <section className="card">
+        <div className="cal-head">
+          <button
+            className="cal-nav"
+            aria-label="Mese precedente"
+            onClick={() => {
+              setCursore(new Date(anno, mese - 1, 1));
+              setGiornoAperto(null);
+            }}
+          >
+            ‹
+          </button>
+          <h2 className="h3">
+            {MESI[mese]} {anno}
+          </h2>
+          <button
+            className="cal-nav"
+            aria-label="Mese successivo"
+            disabled={meseCorrente}
+            onClick={() => {
+              setCursore(new Date(anno, mese + 1, 1));
+              setGiornoAperto(null);
+            }}
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="cal-grid cal-dows">
+          {GIORNI.map((g, i) => (
+            <span key={i} className="cal-dow">
+              {g}
+            </span>
+          ))}
+        </div>
+
+        <div className="cal-grid">
+          {celle.map((g, i) => {
+            if (g === null) return <span key={`v${i}`} className="cal-empty" />;
+            const k = dayKey(new Date(anno, mese, g));
+            const ses = perGiorno[k] || [];
+            const tipi = new Set(ses.map((s) => s.type));
+            const classi = ["cal-day"];
+            if (tipi.has("A") && tipi.has("B")) classi.push("cal-ab");
+            else if (tipi.has("A")) classi.push("cal-a");
+            else if (tipi.has("B")) classi.push("cal-b");
+            if (k === chiaveOggi) classi.push("cal-today");
+            if (k === giornoAperto) classi.push("cal-open");
+            return (
+              <button
+                key={k}
+                className={classi.join(" ")}
+                disabled={!ses.length}
+                aria-label={ses.length ? `${fullLabel(ses[0].date)}, ${ses.length} seduta` : String(g)}
+                onClick={() => setGiornoAperto(giornoAperto === k ? null : k)}
+              >
+                <span className="mono">{g}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="cal-legend">
+          <span className="cal-key cal-a" /> Seduta A
+          <span className="cal-key cal-b" /> Seduta B
+        </div>
+
+        {sedute.map((s) => {
+          const feel = FEEL.find((f) => f.id === s.feel);
+          const en = ENERGIA.find((x) => x.level === s.energy);
+          const sat = SODDISFAZIONE.find((x) => x.level === s.satisfaction);
+          return (
+            <div key={s.id} className="cal-detail">
+              <p className="eyebrow">{fullLabel(s.date)}</p>
+              <h3 className="h3">Seduta {s.type}</h3>
+              <p className="mono muted small">
+                {clock(s.durationSec)} · {setsDone(s.log)}/{plannedSets(s.type)} serie ·{" "}
+                {Math.round(sessionVolume(s))} kg
+              </p>
+              <p className="body spaced">
+                {en && (
+                  <>
+                    Partito {en.emoji} {en.label.toLowerCase()}
+                  </>
+                )}
+                {en && sat && <span className="dot" />}
+                {sat && (
+                  <>
+                    Finito {sat.emoji} {sat.label.toLowerCase()}
+                  </>
+                )}
+                {!en && !sat && <span className="muted">Nessuna sensazione registrata</span>}
+              </p>
+              {feel && <span className={`pill pill-${feel.tone}`}>Ginocchio: {feel.label.toLowerCase()}</span>}
+            </div>
+          );
+        })}
+
+        {!data.history.length && (
+          <div className="cal-detail">
+            <p className="body muted">
+              Nessun allenamento registrato. Chiudi la prima seduta e comparirà qui, sul giorno in cui l'hai fatta.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="card mini">
+        <div className="between">
+          <div className="left">
+            <p className="eyebrow">Nome</p>
+            <p className="body">{data.userName}</p>
+          </div>
+          <button className="btn btn-line btn-inline" onClick={onRinomina}>
+            Cambia
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /* ---------------- storico ---------------- */
 
 function Storico({ data }) {
@@ -942,6 +1361,7 @@ function Storico({ data }) {
       {data.history.map((s) => {
         const isOpen = open === s.id;
         const feel = FEEL.find((f) => f.id === s.feel);
+        const sat = SODDISFAZIONE.find((x) => x.level === s.satisfaction);
         return (
           <section key={s.id} className="card">
             <button className="between full" onClick={() => setOpen(isOpen ? null : s.id)}>
@@ -953,6 +1373,11 @@ function Storico({ data }) {
                 </p>
               </div>
               <div className="right">
+                {sat && (
+                  <span className="sat-emoji" role="img" aria-label={`Soddisfazione: ${sat.label}`}>
+                    {sat.emoji}
+                  </span>
+                )}
                 {feel && <span className={`pill pill-${feel.tone}`}>{feel.label}</span>}
                 <span className="caret">{isOpen ? "−" : "+"}</span>
               </div>
@@ -987,14 +1412,16 @@ function Style() {
 @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap');
 
 .root {
-  --ferro:#000000; --ghisa:#0C0E11; --alto:#14171B; --bordo:#262A31;
+  --nero:#000000; --ghisa:#0C0E11; --alto:#14171B; --bordo:#262A31;
   --gesso:#F7F5F0; --bronzo:#ABA69A; --piastra:#FF2D3E; --verde:#3FD37C; --ambra:#FFB627;
   position:relative; display:flex; flex-direction:column; height:100dvh; overflow:hidden;
-  background:var(--ferro); color:var(--gesso);
+  background:var(--nero); color:var(--gesso);
   font-family:'Space Grotesk',system-ui,sans-serif; letter-spacing:-.004em;
 }
 .root.center { align-items:center; justify-content:center; }
-.root button { font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+/* :where() azzera la specificità: senza, questo reset batterebbe .btn-primary,
+   .cal-a e ogni altra classe con uno sfondo pieno, che resterebbero trasparenti. */
+:where(.root button) { font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
 .root button:focus-visible { outline:2px solid var(--gesso); outline-offset:2px; border-radius:6px; }
 .root button:disabled { opacity:.32; cursor:default; }
 
@@ -1010,7 +1437,8 @@ function Style() {
 .spaced { margin-top:14px; }
 
 .topbar { display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid var(--bordo); flex-shrink:0; }
-.brand { font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:33px; letter-spacing:.22em; margin:0; line-height:.95; }
+.brand { font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:23px; letter-spacing:.10em; margin:0; line-height:.95; white-space:nowrap; }
+.brand-big { font-size:38px; letter-spacing:.08em; margin-top:4px; }
 .eyebrow { font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--bronzo); margin:0 0 4px; font-weight:400; }
 .clock { font-size:24px; font-weight:700; margin:0; line-height:1; }
 .big-clock { font-size:34px; }
@@ -1099,7 +1527,7 @@ function Style() {
 .btn { width:100%; padding:14px; border-radius:13px; font-size:15px; font-weight:600; margin-top:12px; }
 .btn-primary { background:var(--piastra); color:#fff; }
 .btn-primary:active { background:#B8262F; }
-.btn-log { background:var(--gesso); color:var(--ferro); display:flex; flex-direction:column; gap:3px; padding:16px; font-family:'Big Shoulders Display',sans-serif; font-size:23px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; box-shadow:0 0 34px rgba(247,245,240,.09); }
+.btn-log { background:var(--gesso); color:var(--nero); display:flex; flex-direction:column; gap:3px; padding:16px; font-family:'Big Shoulders Display',sans-serif; font-size:23px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; box-shadow:0 0 34px rgba(247,245,240,.09); }
 .btn-log:active { background:#D9D5CB; }
 .btn-sub { font-family:'Space Mono',monospace; font-size:11px; font-weight:400; letter-spacing:0; text-transform:none; opacity:.6; }
 .btn-line { border:1px solid var(--bordo); }
@@ -1121,7 +1549,7 @@ function Style() {
 .rest-over .rest-clock { color:var(--piastra); }
 .rest-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
 .chip { font-size:12px; padding:7px 10px; border-radius:999px; border:1px solid var(--bordo); color:var(--bronzo); }
-.chip-on { background:var(--gesso); color:var(--ferro); border-color:var(--gesso); }
+.chip-on { background:var(--gesso); color:var(--nero); border-color:var(--gesso); }
 .chip-x { color:var(--bronzo); padding:7px 11px; }
 
 /* riepilogo */
@@ -1134,16 +1562,53 @@ function Style() {
 .feel-on.feel-ambra { border-color:var(--ambra); color:var(--ambra); background:rgba(224,163,46,.12); }
 .feel-on.feel-piastra { border-color:var(--piastra); color:var(--piastra); background:rgba(217,48,63,.12); }
 
+/* scale a quattro gradini: energia all'apertura, soddisfazione a fine seduta */
+.moodrow { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:9px; }
+.mood { display:flex; flex-direction:column; align-items:center; gap:6px; padding:11px 3px; border-radius:11px; border:1px solid var(--bordo); font-size:10px; line-height:1.2; text-align:center; color:var(--bronzo); }
+.mood:active { background:var(--alto); }
+.mood-emoji { font-size:27px; line-height:1; }
+.mood-on.mood-verde { border-color:var(--verde); color:var(--verde); background:rgba(79,174,104,.12); }
+.mood-on.mood-ambra { border-color:var(--ambra); color:var(--ambra); background:rgba(224,163,46,.12); }
+.mood-on.mood-piastra { border-color:var(--piastra); color:var(--piastra); background:rgba(217,48,63,.12); }
+.sat-emoji { font-size:17px; margin-right:7px; vertical-align:middle; }
+.stat-emoji { font-size:19px; margin-right:6px; vertical-align:-1px; }
+
+/* onboarding */
+.onboard { width:100%; max-width:340px; padding:0 24px; }
+.field { width:100%; margin-top:12px; padding:14px; border-radius:12px; background:#07080A; border:1px solid var(--bordo); color:var(--gesso); font-family:'Space Grotesk',sans-serif; font-size:17px; }
+.field:focus { outline:none; border-color:var(--piastra); }
+
+/* calendario della scheda Dati */
+.cal-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.cal-head .h3 { margin:0; }
+.cal-nav { width:38px; height:38px; border-radius:10px; border:1px solid var(--bordo); font-size:20px; color:var(--bronzo); line-height:1; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.cal-dows { margin-bottom:6px; }
+.cal-dow { text-align:center; font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--bronzo); }
+.cal-empty { aspect-ratio:1; }
+.cal-day { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:9px; border:1px solid var(--bordo); font-size:12.5px; color:var(--bronzo); padding:0; }
+.cal-day:disabled { opacity:1; border-color:transparent; color:#3A3F47; }
+.cal-a { background:var(--piastra); border-color:var(--piastra); color:#fff; font-weight:700; }
+.cal-b { background:var(--verde); border-color:var(--verde); color:#0F1114; font-weight:700; }
+.cal-ab { background:linear-gradient(135deg,var(--piastra) 50%,var(--verde) 50%); border-color:var(--piastra); color:#fff; font-weight:700; }
+.cal-today { box-shadow:inset 0 0 0 2px var(--gesso); }
+.cal-open { outline:2px solid var(--gesso); outline-offset:2px; }
+.cal-legend { display:flex; align-items:center; gap:7px; margin-top:13px; font-size:10.5px; color:var(--bronzo); }
+.cal-key { width:11px; height:11px; border-radius:4px; flex-shrink:0; margin-left:6px; }
+.cal-legend .cal-key:first-child { margin-left:0; }
+.cal-detail { margin-top:15px; padding-top:14px; border-top:1px solid var(--bordo); }
+.btn-inline { width:auto; margin-top:0; padding:9px 15px; font-size:13px; flex-shrink:0; }
+
 .flash { position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 0 3px var(--gesso); opacity:.5; animation:fade 700ms ease forwards; z-index:15; }
 .flash-record { box-shadow:inset 0 0 0 3px var(--ambra); display:flex; align-items:center; justify-content:center; font-family:'Big Shoulders Display',sans-serif; font-size:52px; font-weight:800; color:var(--ambra); letter-spacing:.06em; text-transform:uppercase; animation:fade 1600ms ease forwards; }
 @keyframes fade { 0%{opacity:.9} 70%{opacity:.6} 100%{opacity:0} }
 
 .toast { position:absolute; left:16px; right:16px; bottom:130px; background:var(--piastra); color:#fff; padding:12px; border-radius:11px; font-size:12.5px; z-index:25; }
 
-.tabbar { position:absolute; bottom:0; left:0; right:0; height:calc(58px + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); display:flex; border-top:1px solid var(--bordo); background:var(--ferro); }
-.tab { flex:1; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--bronzo); font-weight:500; border-top:2px solid transparent; position:relative; }
+.tabbar { position:absolute; bottom:0; left:0; right:0; height:calc(58px + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); display:flex; border-top:1px solid var(--bordo); background:var(--nero); }
+.tab { flex:1; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--bronzo); font-weight:500; border-top:2px solid transparent; position:relative; }
 .tab-on { color:var(--gesso); border-top-color:var(--piastra); }
-.live { position:absolute; top:12px; right:22%; width:6px; height:6px; border-radius:50%; background:var(--piastra); }
+.live { position:absolute; top:12px; right:14px; width:6px; height:6px; border-radius:50%; background:var(--piastra); }
 
 @media (prefers-reduced-motion:reduce) { .root *,.root *::after { transition:none !important; animation:none !important; } }
 `}</style>

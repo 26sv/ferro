@@ -10,7 +10,11 @@
  * questo file mantenendo le stesse quattro funzioni.
  */
 
-const PREFIX = "ferro:";
+const PREFIX = "gymbuddy:";
+
+/* L'app si chiamava Ferro e scriveva sotto "ferro:". Le vecchie chiavi restano
+   dove sono: le ricopiamo, non le spostiamo, così un rollback non perde niente. */
+const PREFIX_FERRO = "ferro:";
 
 export const storage = {
   async get(key) {
@@ -38,6 +42,27 @@ export const storage = {
     return { keys, prefix };
   },
 };
+
+/**
+ * Ricopia una tantum i dati salvati dalle versioni chiamate Ferro.
+ * Va chiamata prima della prima lettura. Copia solo le chiavi che ancora non
+ * esistono sotto il prefisso nuovo, quindi rieseguirla non sovrascrive nulla.
+ */
+export function migraDaFerro() {
+  try {
+    const vecchie = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(PREFIX_FERRO)) vecchie.push(k);
+    }
+    for (const k of vecchie) {
+      const nuova = PREFIX + k.slice(PREFIX_FERRO.length);
+      if (localStorage.getItem(nuova) === null) localStorage.setItem(nuova, localStorage.getItem(k));
+    }
+  } catch (e) {
+    /* localStorage negato (navigazione privata): si riparte da zero */
+  }
+}
 
 /** Esporta tutto lo storico in un file JSON (backup manuale). */
 export async function esporta() {
