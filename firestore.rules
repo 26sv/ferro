@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Un solo utente: il proprietario. Nessun altro legge o scrive, nemmeno in
+// lettura pubblica. L'uid è quello che compare in Firebase Console >
+// Authentication, e va copiato anche in VITE_OWNER_UID.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function proprietario() {
+      return request.auth != null
+        && request.auth.uid == 'INCOLLA_QUI_UID_DEL_PROPRIETARIO';
+    }
+
+    match /{documento=**} {
+      allow read, write: if proprietario();
+    }
+  }
+}

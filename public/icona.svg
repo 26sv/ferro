@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gestionale formazione">
+  <rect width="512" height="512" rx="96" fill="#1B2A41" />
+  <!-- La passata di evidenziatore sul giorno di oggi, come nella griglia. -->
+  <rect x="96" y="128" width="88" height="272" rx="8" fill="#FFD447" transform="rotate(-1.2 140 264)" />
+  <g fill="#F2F3EF">
+    <rect x="112" y="160" width="56" height="72" rx="4" />
+    <rect x="208" y="160" width="56" height="128" rx="4" />
+    <rect x="304" y="160" width="56" height="200" rx="4" />
+  </g>
+  <g fill="none" stroke="#F2F3EF" stroke-width="16" stroke-linecap="round">
+    <path d="M96 400h320" />
+  </g>
+</svg>

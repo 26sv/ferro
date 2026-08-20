@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "lezioni",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stato", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "lezioni",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "corsoId", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "lezioni",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipologia", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "materiali",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "corsoId", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "materiali",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "riutilizzabile", "order": "ASCENDING" },
+        { "fieldPath": "tag", "arrayConfig": "CONTAINS" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

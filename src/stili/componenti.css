@@ -1,0 +1,757 @@
+/* Barra del monte ore, griglia della settimana, agenda, righe e grafici.
+   Tutto parla la stessa lingua: segmenti affiancati, colore per tipologia,
+   contorno tratteggiato per ciò che non è ancora successo. */
+
+/* ---------- Barra del monte ore ---------- */
+
+.barra-ore {
+  --altezza-segmento: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.barra-ore__testata {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.barra-ore__titolo {
+  font-family: var(--font-display);
+  font-size: var(--t-3);
+  font-weight: 600;
+}
+
+.barra-ore__sigla {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.barra-ore__conteggio {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.barra-ore__segmenti {
+  display: flex;
+  gap: 3px;
+  height: var(--altezza-segmento);
+}
+
+.segmento {
+  position: relative;
+  min-width: 6px;
+  border: var(--bordo-spesso) solid var(--colore);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+  overflow: hidden;
+}
+
+.segmento--pianificata {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--colore) 55%, var(--carta));
+}
+
+.segmento--annullata {
+  border-color: var(--bordo);
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    var(--bordo) 4px 5px
+  );
+}
+
+.segmento__riempimento {
+  position: absolute;
+  inset: 0;
+  background: var(--colore);
+  transform-origin: left center;
+}
+
+/* Unica animazione elaborata dell'app: il segmento si riempie da sinistra
+   quando la lezione passa a erogata. */
+.segmento--appena .segmento__riempimento {
+  animation: riempi var(--durata-riempimento) var(--curva) both;
+}
+
+@keyframes riempi {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.barra-ore__etichette {
+  display: flex;
+  gap: 3px;
+}
+
+.barra-ore__etichetta {
+  min-width: 0;
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-ore__prossima {
+  display: flex;
+  gap: 3px;
+}
+
+.barra-ore__marcatore {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro);
+  white-space: nowrap;
+}
+
+.barra-ore--dettaglio {
+  --altezza-segmento: 30px;
+}
+
+.barra-ore--card {
+  --altezza-segmento: 10px;
+  gap: var(--s-1);
+}
+
+.barra-ore--card .segmento {
+  border-width: 1px;
+}
+
+/* ---------- Griglia della settimana (desktop) ---------- */
+
+.settimana {
+  --altezza-ora: 56px;
+  border: var(--bordo-spesso) solid var(--inchiostro);
+  background: var(--carta-alta);
+}
+
+.settimana__giorni,
+.settimana__corpo {
+  display: grid;
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+}
+
+/* Un filo d'aria in alto, altrimenti la prima ora resta tagliata a metà. */
+.settimana__corpo {
+  padding-top: var(--s-2);
+}
+
+.settimana__giorni {
+  border-bottom: var(--bordo-spesso) solid var(--inchiostro);
+}
+
+.settimana__giorno {
+  position: relative;
+  padding: var(--s-2) var(--s-2) var(--s-3);
+  border-left: 1px solid var(--bordo);
+  text-align: center;
+}
+
+.settimana__giorno-nome {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--t-1);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--inchiostro-tenue);
+}
+
+.settimana__giorno-numero {
+  display: block;
+  font-family: var(--font-dati);
+  font-size: var(--t-4);
+  line-height: 1.2;
+}
+
+.settimana__ore {
+  position: relative;
+}
+
+.settimana__ora {
+  position: absolute;
+  right: var(--s-2);
+  transform: translateY(-50%);
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+}
+
+.settimana__colonna {
+  position: relative;
+  border-left: 1px solid var(--bordo);
+  background-image: repeating-linear-gradient(
+    var(--carta-alta) 0 calc(var(--altezza-ora) - 1px),
+    var(--bordo) calc(var(--altezza-ora) - 1px) var(--altezza-ora)
+  );
+}
+
+.settimana__colonna--festivo {
+  background-color: var(--carta);
+  background-image: repeating-linear-gradient(
+    var(--carta) 0 calc(var(--altezza-ora) - 1px),
+    var(--bordo) calc(var(--altezza-ora) - 1px) var(--altezza-ora)
+  );
+}
+
+/* La passata di evidenziatore sulla colonna di oggi: volutamente storta e
+   più stretta della colonna, come un tratto di pennarello fatto a mano.
+   È l'unico segnale in evidenziatore della schermata, per questo la
+   testata del giorno si limita al grassetto. */
+.settimana__colonna--oggi::before {
+  content: '';
+  position: absolute;
+  inset: -6px 7px -2px -3px;
+  z-index: 0;
+  /* Il tratto è più carico al centro e si scarica ai bordi, come un
+     pennarello passato una volta sola. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--evidenziatore) 55%, transparent) 0%,
+    var(--evidenziatore) 6%,
+    var(--evidenziatore) 94%,
+    color-mix(in srgb, var(--evidenziatore) 40%, transparent) 100%
+  );
+  border-radius: 46% 54% 48% 52% / 1% 2% 1% 2%;
+  transform: rotate(-0.45deg);
+  opacity: 0.34;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.settimana__giorno--oggi .settimana__giorno-nome {
+  color: var(--inchiostro);
+}
+
+.settimana__giorno--oggi .settimana__giorno-numero {
+  font-weight: 700;
+}
+
+.settimana__angolo {
+  border-right: 1px solid var(--bordo);
+}
+
+.settimana__vuoto {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: var(--altezza-ora);
+  cursor: pointer;
+}
+
+.settimana__vuoto:hover {
+  background: color-mix(in srgb, var(--inchiostro) 4%, transparent);
+}
+
+/* ---------- Blocco lezione ---------- */
+
+.lezione {
+  position: absolute;
+  z-index: 2;
+  left: 3px;
+  right: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--bordo);
+  border-left: 4px solid var(--colore);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+  overflow: hidden;
+}
+
+.lezione:hover {
+  border-color: var(--inchiostro);
+  border-left-color: var(--colore);
+}
+
+.lezione--erogata {
+  background: color-mix(in srgb, var(--colore) 10%, var(--carta-alta));
+}
+
+.lezione--annullata {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--carta-alta) 0 5px,
+    var(--carta) 5px 6px
+  );
+  color: var(--inchiostro-tenue);
+}
+
+.lezione--annullata .lezione__titolo {
+  text-decoration: line-through;
+}
+
+.lezione__ora {
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+}
+
+.lezione__titolo {
+  font-size: var(--t-2);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.lezione__meta {
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Agenda (mobile) ---------- */
+
+.agenda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.agenda__giorno {
+  padding-top: var(--s-3);
+  border-top: var(--bordo-spesso) solid var(--inchiostro);
+}
+
+.agenda__data {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+  padding: 0 var(--s-1);
+}
+
+.agenda__giorno--oggi .agenda__data::before {
+  content: '';
+  position: absolute;
+  inset: 30% -4px 4% -2px;
+  background: var(--evidenziatore);
+  mix-blend-mode: multiply;
+  border-radius: 40% 60% 45% 55% / 40% 50% 45% 55%;
+  transform: rotate(-0.9deg);
+}
+
+.agenda__nome {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: var(--t-4);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.agenda__numero {
+  position: relative;
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  color: var(--inchiostro-tenue);
+}
+
+.agenda__lezioni {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.agenda .lezione {
+  position: static;
+  min-height: var(--tocco);
+  padding: var(--s-2) var(--s-3);
+}
+
+.agenda__niente {
+  font-size: var(--t-2);
+  color: var(--inchiostro-tenue);
+}
+
+/* ---------- Righe: corsi, enti, programmi ---------- */
+
+.righe {
+  display: flex;
+  flex-direction: column;
+}
+
+.riga {
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.riga:first-child {
+  border-top: 1px solid var(--bordo);
+}
+
+.riga__testata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.riga__titolo {
+  font-family: var(--font-display);
+  font-size: var(--t-4);
+  font-weight: 600;
+}
+
+.riga__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+}
+
+.riga__corpo {
+  margin-top: var(--s-3);
+}
+
+.stato {
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stato::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+
+.stato--in-corso::before {
+  background: currentColor;
+}
+
+.stato--concluso {
+  color: var(--inchiostro-tenue);
+}
+
+.stato--concluso::before {
+  background: currentColor;
+}
+
+.stato--annullato {
+  color: var(--inchiostro-tenue);
+  text-decoration: line-through;
+}
+
+/* ---------- Moduli del programma ---------- */
+
+.moduli {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.modulo {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border-left: 3px solid var(--colore);
+  background: var(--carta-alta);
+}
+
+.modulo__n {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+}
+
+.modulo__titolo {
+  font-weight: 500;
+}
+
+.modulo__elenco {
+  margin-top: var(--s-1);
+  font-size: var(--t-2);
+  color: var(--inchiostro-tenue);
+}
+
+.modulo__elenco li::before {
+  content: '— ';
+}
+
+/* ---------- Materiali ---------- */
+
+.griglia-materiali {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--s-3);
+}
+
+.materiale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--bordo);
+  border-top: 3px solid var(--colore);
+  background: var(--carta-alta);
+}
+
+.materiale__nome {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.materiale__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+}
+
+.materiale__azioni {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: auto;
+}
+
+.tag {
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+}
+
+.tag::before {
+  content: '#';
+}
+
+/* ---------- Coda "Da sistemare" ---------- */
+
+.coda {
+  border-top: 1px solid var(--bordo);
+}
+
+.coda__riga {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-3);
+  align-items: start;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.coda__nomi {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.coda__prima,
+.coda__dopo {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  word-break: break-all;
+}
+
+.coda__prima {
+  color: var(--inchiostro-tenue);
+  text-decoration: line-through;
+}
+
+.coda__freccia {
+  color: var(--inchiostro-tenue);
+}
+
+.coda__dopo--incerto {
+  border-bottom: var(--bordo-spesso) dashed var(--bordo);
+}
+
+.coda__riga input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--inchiostro);
+}
+
+.coda__barra {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+  padding: var(--s-3) 0;
+  background: var(--carta);
+  border-top: var(--bordo-spesso) solid var(--inchiostro);
+}
+
+/* ---------- Numeri ---------- */
+
+.barre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.barre__riga {
+  display: grid;
+  grid-template-columns: minmax(110px, 180px) 1fr 68px;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+/* Su schermo stretto il nome sta sopra la barra: la traccia non si riduce
+   a un moncone di due centimetri. */
+@media (max-width: 560px) {
+  .barre__riga {
+    grid-template-columns: 1fr auto;
+    row-gap: var(--s-1);
+  }
+
+  .barre__traccia {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.barre__nome {
+  font-family: var(--font-display);
+  font-size: var(--t-2);
+  font-weight: 600;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barre__traccia {
+  height: 22px;
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+}
+
+.barre__pieno {
+  height: 100%;
+  background: var(--colore);
+}
+
+.barre__valore {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Ciò che è più largo dello schermo scorre dentro il suo riquadro: la pagina
+   non si allarga mai in orizzontale. */
+.scorre {
+  overflow-x: auto;
+  padding-bottom: var(--s-1);
+}
+
+.striscia {
+  display: grid;
+  gap: 3px;
+  align-items: end;
+  justify-content: start;
+  height: 160px;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.striscia__mese {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  height: 100%;
+  justify-content: flex-start;
+}
+
+.striscia__pezzo {
+  background: var(--colore);
+  border-radius: 1px;
+}
+
+.striscia__etichette {
+  display: grid;
+  gap: 3px;
+  justify-content: start;
+  margin-top: var(--s-2);
+}
+
+.striscia__etichetta {
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+  color: var(--inchiostro-tenue);
+  text-align: center;
+  overflow: hidden;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+}
+
+.legenda__voce {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-2);
+}
+
+.legenda__pallino {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--colore);
+}
+
+.sezione {
+  margin-bottom: var(--s-7);
+}
+
+.sezione__titolo {
+  margin-bottom: var(--s-4);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--bordo);
+}
+
+/* ---------- Movimento ridotto ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

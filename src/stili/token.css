@@ -1,0 +1,54 @@
+/* Tutti i numeri e i colori dell'interfaccia stanno qui. Nel resto del CSS
+   non si scrive mai un valore a mano: si usa una di queste variabili. */
+
+:root {
+  /* Palette */
+  --inchiostro: #1b2a41;
+  --inchiostro-tenue: #5a6b82;
+  --carta: #f2f3ef;
+  --carta-alta: #ffffff;
+  --evidenziatore: #ffd447;
+  --bordo: #dde0d8;
+
+  /* Tipologie di corso: bande, riempimenti, barre. Mai testo su questi fondi. */
+  --tipologia-smm: #2f6f6b;
+  --tipologia-ai: #4a5ba6;
+  --tipologia-linkedin: #b5443a;
+  --tipologia-startup: #c97a1f;
+  --tipologia-hospitality: #7a4e8c;
+  --tipologia-altro: #5a6b82;
+
+  /* Famiglie: display per i titoli, testo per il resto, dati per ciò che si
+     legge a colpo d'occhio (date, orari, sigle, codici modulo). */
+  --font-display: 'Bricolage Grotesque', 'Public Sans', system-ui, sans-serif;
+  --font-testo: 'Public Sans', system-ui, -apple-system, sans-serif;
+  --font-dati: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Scala tipografica: sei gradini, nessuna misura intermedia. */
+  --t-1: 12px;
+  --t-2: 14px;
+  --t-3: 16px;
+  --t-4: 20px;
+  --t-5: 28px;
+  --t-6: 44px;
+
+  /* Spaziature */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* Misure fisse */
+  --nav-lato: 72px;
+  --nav-basso: 64px;
+  --tocco: 44px;
+  --raggio: 3px;
+  --bordo-spesso: 2px;
+
+  /* Movimento */
+  --durata-riempimento: 320ms;
+  --curva: cubic-bezier(0.2, 0.7, 0.3, 1);
+}

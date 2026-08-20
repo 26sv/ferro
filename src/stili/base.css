@@ -1,0 +1,546 @@
+/* Reset, tipografia, guscio dell'app, navigazione, form e bottoni. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--carta);
+  color: var(--inchiostro);
+  font-family: var(--font-testo);
+  font-size: var(--t-3);
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: var(--t-5);
+  text-transform: uppercase;
+}
+
+h2 {
+  font-size: var(--t-4);
+  font-weight: 600;
+}
+
+h3 {
+  font-size: var(--t-3);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* I collegamenti prendono il colore di ciò che li circonda: la sottolineatura
+   resta solo dove un link sta dentro una frase. */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+p a,
+.avviso a,
+.vuoto a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.riga__titolo:hover,
+.modulo__titolo:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Ciò che si legge a colpo d'occhio: date, orari, sigle, codici modulo. */
+.dati {
+  font-family: var(--font-dati);
+  font-size: var(--t-2);
+  letter-spacing: -0.02em;
+}
+
+.tenue {
+  color: var(--inchiostro-tenue);
+}
+
+.etichetta {
+  font-size: var(--t-1);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inchiostro-tenue);
+}
+
+.numerone {
+  font-family: var(--font-display);
+  font-size: var(--t-6);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Il focus si vede sempre, ed è l'unica altra apparizione ammessa
+   dell'evidenziatore oltre al segnale della schermata. */
+:focus-visible {
+  outline: 3px solid var(--evidenziatore);
+  outline-offset: 2px;
+}
+
+/* `:where()` tiene la specificità a zero: senza, questo reset batterebbe le
+   classi con fondo pieno (.btn-primario) e le renderebbe trasparenti. */
+:where(button) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- Guscio ---------- */
+
+.app {
+  display: flex;
+  min-height: 100%;
+}
+
+.contenuto {
+  flex: 1;
+  min-width: 0;
+  padding: var(--s-5) var(--s-6) var(--s-7);
+}
+
+/* ---------- Navigazione laterale (desktop) ---------- */
+
+.nav-lato {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  width: var(--nav-lato);
+  height: 100vh;
+  padding: var(--s-3) 0;
+  background: var(--inchiostro);
+  color: var(--carta);
+}
+
+.nav-lato__voce {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s-2) 0;
+  color: color-mix(in srgb, var(--carta) 70%, transparent);
+}
+
+.nav-lato__voce[aria-current='page'] {
+  color: var(--carta);
+  box-shadow: inset 3px 0 0 var(--evidenziatore);
+}
+
+.nav-lato__voce:hover {
+  color: var(--carta);
+}
+
+.nav-lato__icona {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.nav-lato__testo {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav-lato__sigle {
+  margin-top: auto;
+  padding: var(--s-3) var(--s-2) 0;
+  border-top: 1px solid color-mix(in srgb, var(--carta) 20%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.nav-lato__sigla {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--carta) 65%, transparent);
+  writing-mode: vertical-rl;
+}
+
+.nav-lato__sigla:hover {
+  color: var(--carta);
+}
+
+/* ---------- Navigazione in basso (mobile) ---------- */
+
+.nav-basso {
+  display: none;
+}
+
+/* ---------- Intestazione di schermata ---------- */
+
+.intestazione {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+  padding-bottom: var(--s-3);
+  border-bottom: var(--bordo-spesso) solid var(--inchiostro);
+}
+
+.intestazione__azioni {
+  display: flex;
+  gap: var(--s-2);
+}
+
+/* ---------- Bottoni ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tocco);
+  padding: 0 var(--s-4);
+  border: var(--bordo-spesso) solid var(--inchiostro);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+  font-size: var(--t-2);
+  font-weight: 500;
+}
+
+.btn:hover {
+  background: var(--carta);
+}
+
+.btn-primario {
+  background: var(--inchiostro);
+  color: var(--carta-alta);
+}
+
+.btn-primario:hover {
+  background: color-mix(in srgb, var(--inchiostro) 88%, var(--carta));
+}
+
+.btn-fantasma {
+  border-color: transparent;
+  background: none;
+}
+
+.btn-fantasma:hover {
+  border-color: var(--bordo);
+  background: var(--carta-alta);
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-piccolo {
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  font-size: var(--t-1);
+}
+
+/* ---------- Form ---------- */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.campo > input,
+.campo > select,
+.campo > textarea {
+  min-height: var(--tocco);
+  padding: var(--s-2) var(--s-3);
+  border: var(--bordo-spesso) solid var(--bordo);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+}
+
+.campo > input:focus,
+.campo > select:focus,
+.campo > textarea:focus {
+  border-color: var(--inchiostro);
+}
+
+.campo > textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.campo--data > input,
+.campo--ora > input {
+  font-family: var(--font-dati);
+}
+
+.riga-campi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s-3);
+}
+
+/* ---------- Modale ---------- */
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-4);
+  background: color-mix(in srgb, var(--inchiostro) 55%, transparent);
+}
+
+/* Testata e piede restano fermi, scorre solo il corpo: il bottone che
+   conferma è sempre sotto il pollice, anche nei form lunghi. */
+.modale {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100vh - var(--s-7));
+  overflow: hidden;
+  padding: var(--s-5);
+  border: var(--bordo-spesso) solid var(--inchiostro);
+  border-radius: var(--raggio);
+  background: var(--carta-alta);
+}
+
+.modale__testata {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+
+.modale__corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.campi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.modale__piede {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--bordo);
+}
+
+.modale__piede .a-destra {
+  margin-left: auto;
+}
+
+/* ---------- Stati vuoti, avvisi, badge ---------- */
+
+.vuoto {
+  padding: var(--s-6) var(--s-5);
+  border: var(--bordo-spesso) dashed var(--bordo);
+  border-radius: var(--raggio);
+  text-align: center;
+  color: var(--inchiostro-tenue);
+}
+
+.vuoto h2 {
+  margin-bottom: var(--s-2);
+  color: var(--inchiostro);
+}
+
+.avviso {
+  padding: var(--s-3) var(--s-4);
+  border-left: var(--bordo-spesso) solid var(--inchiostro);
+  background: var(--carta-alta);
+  font-size: var(--t-2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--inchiostro);
+  color: var(--carta-alta);
+  font-family: var(--font-dati);
+  font-size: var(--t-1);
+}
+
+.btn-primario .badge {
+  background: var(--carta-alta);
+  color: var(--inchiostro);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--bordo);
+  border-radius: 16px;
+  background: var(--carta-alta);
+  font-size: var(--t-1);
+  font-weight: 500;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--inchiostro);
+  background: var(--inchiostro);
+  color: var(--carta-alta);
+}
+
+.filtri {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+
+.solo-lettori {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 860px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .nav-lato {
+    display: none;
+  }
+
+  .contenuto {
+    padding: var(--s-4) var(--s-4) calc(var(--nav-basso) + var(--s-7));
+  }
+
+  .nav-basso {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: calc(var(--nav-basso) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--inchiostro);
+    color: var(--carta);
+  }
+
+  .nav-basso__voce {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: color-mix(in srgb, var(--carta) 70%, transparent);
+  }
+
+  .nav-basso__voce[aria-current='page'] {
+    color: var(--carta);
+    box-shadow: inset 0 3px 0 var(--evidenziatore);
+  }
+
+  .nav-basso__icona {
+    width: 22px;
+    height: 22px;
+  }
+
+  .nav-basso__testo {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: var(--t-4);
+  }
+
+  .numerone {
+    font-size: var(--t-5);
+  }
+
+  /* Su telefono la modale sale dal basso: il pollice resta dov'è. */
+  .velo {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modale {
+    width: 100%;
+    max-height: 88vh;
+    border-width: var(--bordo-spesso) 0 0;
+    border-radius: 0;
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
+  }
+}
